@@ -15,6 +15,11 @@ app.use(express.json());
 // Health check endpoint
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
+// Root endpoint (useful for quick checks and to avoid "Cannot GET /")
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'Book_it API is running' });
+});
+
 // MongoDB connection (safe for serverless)
 const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/book_it';
 let isConnected = false;
