@@ -7,13 +7,8 @@ import { Booking, Experience, Promo, Slot, User } from './models.js';
 
 const app = express();
 
-// Configure CORS for production and development
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? ['https://book-it-frontend.vercel.app', 'https://book-it-site.vercel.app']
-    : 'http://localhost:5173',
-  credentials: true,
-}));
+// Simple CORS configuration for local development
+app.use(cors());
 
 app.use(express.json());
 
