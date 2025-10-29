@@ -1,0 +1,19 @@
+# backend
+node_modules/
+.env
+.env.local
+.env.*
+
+# logs
+npm-debug.log*
+
+# build
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# misc
+*.log

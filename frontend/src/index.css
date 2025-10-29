@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Typography scale similar to Figma */
+.h1 { @apply text-2xl md:text-3xl font-semibold text-gray-900; }
+.h2 { @apply text-xl md:text-2xl font-semibold text-gray-900; }
+.muted { @apply text-sm text-gray-500; }
+
+
