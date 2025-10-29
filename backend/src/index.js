@@ -15,10 +15,39 @@ app.use(express.json());
 // Health check endpoint
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-// MongoDB connection
+// MongoDB connection (safe for serverless)
 const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/book_it';
-await mongoose.connect(mongoUri);
-console.log('✅ MongoDB connected');
+let isConnected = false;
+
+const connectDB = async () => {
+  if (isConnected) return;
+  try {
+    // Use mongoose's internal cache if already connected in the runtime
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      isConnected = true;
+      return;
+    }
+    await mongoose.connect(mongoUri, {
+      // useNewUrlParser/useUnifiedTopology are default in mongoose v6+
+    });
+    isConnected = true;
+    console.log('✅ MongoDB connected');
+  } catch (err) {
+    console.error('MongoDB connection error:', err?.message || err);
+    throw err;
+  }
+};
+
+// Ensure DB connected before handling requests (prevents serverless crash)
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    // Do not allow a DB connection failure to crash the function; return 500
+    res.status(500).json({ ok: false, message: 'Database connection failed' });
+  }
+});
 
 // -------------------- ROUTES --------------------
 
