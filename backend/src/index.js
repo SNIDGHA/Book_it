@@ -6,89 +6,51 @@ import { nanoid } from 'nanoid';
 import { Booking, Experience, Promo, Slot, User } from './models.js';
 
 const app = express();
+
 // Configure CORS for production and development
 app.use(cors({
-  origin: ['http://localhost:5173', 'https://book-it-frontend.vercel.app'],
-  credentials: true
+  origin: process.env.NODE_ENV === 'production'
+    ? ['https://book-it-frontend.vercel.app', 'https://book-it-site.vercel.app']
+    : 'http://localhost:5173',
+  credentials: true,
 }));
+
 app.use(express.json());
 
 // Health check endpoint
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-// Root endpoint for Vercel
-app.get('/', (req, res) => {
-  res.json({ message: 'Backend is running!' });
-});
-
 // MongoDB connection
-let isConnected = false;
-const connectDB = async () => {
-  if (isConnected) return;
-  try {
-    const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/book_it';
-    await mongoose.connect(mongoUri);
-    isConnected = true;
-    console.log('✅ MongoDB connected');
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
-    throw error;
-  }
-};
+const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/book_it';
+await mongoose.connect(mongoUri);
+console.log('✅ MongoDB connected');
 
-// Connect to MongoDB before handling routes
-app.use(async (req, res, next) => {
-  try {
-    await connectDB();
-    next();
-  } catch (error) {
-    console.error('DB connection failed:', error);
-    res.status(500).json({ error: 'Database connection failed' });
-  }
-});
+// -------------------- ROUTES --------------------
 
 // Get all experiences
 app.get('/api/experiences', async (req, res) => {
   const search = req.query.search?.trim().toLowerCase();
   const filter = search
-  // Error handling middleware
-  const errorHandler = (err, req, res, next) => {
-    console.error('Error:', err);
-    res.status(500).json({ 
-      ok: false, 
-      message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message 
-    });
-  };
-
-  // Configure CORS for all environments
-  app.use(cors({
-    origin: [
-      'http://localhost:5173',
-      'https://book-it-frontend.vercel.app',
-      'https://book-it-site.vercel.app',
-      'https://book-it-ten.vercel.app',
-      'https://book-it-snidghas-projects.vercel.app'
-    ],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-  }));
+    ? {
+        $or: [
+          { title: { $regex: search, $options: 'i' } },
+          { city: { $regex: search, $options: 'i' } },
+          { shortDescription: { $regex: search, $options: 'i' } },
+          { longDescription: { $regex: search, $options: 'i' } },
+        ],
+      }
+    : {};
+  const exps = await Experience.find(filter).lean();
+  res.json(
+    exps.map((e) => ({
       id: String(e._id),
       title: e.title,
-
-  // Request logging in development
-  if (process.env.NODE_ENV !== 'production') {
-    app.use((req, res, next) => {
-      console.log(`${req.method} ${req.url}`);
-      next();
-    });
-  }
       city: e.city,
       price: e.price,
       imageUrl: e.imageUrl,
       shortDescription: e.shortDescription,
       longDescription: e.longDescription,
-      dates: e.dates
+      dates: e.dates,
     }))
   );
 });
@@ -105,10 +67,16 @@ app.get('/api/experiences/:id', async (req, res) => {
 
   const slots = await Slot.find({ experienceId: exp._id }).lean();
   const slotsByDate = {};
+
   for (const date of exp.dates) {
     slotsByDate[date] = slots
       .filter((s) => s.date === date)
-      .map((s) => ({ id: String(s._id), timeLabel: s.timeLabel, capacity: s.capacity, available: s.available }));
+      .map((s) => ({
+        id: String(s._id),
+        timeLabel: s.timeLabel,
+        capacity: s.capacity,
+        available: s.available,
+      }));
   }
 
   res.json({
@@ -120,13 +88,13 @@ app.get('/api/experiences/:id', async (req, res) => {
       imageUrl: exp.imageUrl,
       shortDescription: exp.shortDescription,
       longDescription: exp.longDescription,
-      dates: exp.dates
+      dates: exp.dates,
     },
-    slotsByDate
+    slotsByDate,
   });
 });
 
-//Validate promo
+// Validate promo
 app.post('/api/promo/validate', async (req, res) => {
   const code = (req.body.code || '').toUpperCase();
   const promo = await Promo.findOne({ code }).lean();
@@ -134,10 +102,11 @@ app.post('/api/promo/validate', async (req, res) => {
   res.json({ valid: true, type: promo.type, value: promo.value });
 });
 
-//Create booking
+// Create booking
 app.post('/api/bookings', async (req, res) => {
   const { experienceId, date, slotId, qty, name, email } = req.body;
   const emailNormalized = String(email || '').trim().toLowerCase();
+
   if (!experienceId || !date || !slotId || !qty || !name || !emailNormalized)
     return res.status(400).json({ ok: false, message: 'Missing fields' });
 
@@ -145,12 +114,12 @@ app.post('/api/bookings', async (req, res) => {
   if (!slot || slot.available < qty)
     return res.status(409).json({ ok: false, message: 'Not enough slots' });
 
-  // Normalize and store email consistently to avoid lookup mismatches
   const user = await User.findOneAndUpdate(
     { email: emailNormalized },
     { $set: { name, email: emailNormalized } },
     { upsert: true, new: true }
   );
+
   await Slot.updateOne({ _id: slot._id }, { $inc: { available: -qty } });
   await Booking.create({
     experienceId,
@@ -158,24 +127,28 @@ app.post('/api/bookings', async (req, res) => {
     slotId,
     qty,
     userId: user._id,
-    refId: nanoid(10)
+    refId: nanoid(10),
   });
 
   res.json({ ok: true, message: 'Booking confirmed' });
 });
 
-// ---------------- DEV: delete booking (by id) ----------------
-// Allows removing an accidental "draft" or test booking from DB. Restores slot availability.
+// Delete booking by ID
 app.delete('/api/bookings/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ ok: false, message: 'Invalid id' });
-    const booking = await Booking.findById(id);
-    if (!booking) return res.status(404).json({ ok: false, message: 'Booking not found' });
+    if (!id || !mongoose.Types.ObjectId.isValid(id))
+      return res.status(400).json({ ok: false, message: 'Invalid id' });
 
-    // restore slot availability
+    const booking = await Booking.findById(id);
+    if (!booking)
+      return res.status(404).json({ ok: false, message: 'Booking not found' });
+
     if (booking.slotId && booking.qty) {
-      await Slot.updateOne({ _id: booking.slotId }, { $inc: { available: booking.qty } });
+      await Slot.updateOne(
+        { _id: booking.slotId },
+        { $inc: { available: booking.qty } }
+      );
     }
 
     await Booking.deleteOne({ _id: booking._id });
@@ -186,21 +159,27 @@ app.delete('/api/bookings/:id', async (req, res) => {
   }
 });
 
-// ---------------- DEV: delete bookings by email ----------------
-// Use to clear all bookings for a test user. Returns number deleted.
+// Delete bookings by email
 app.delete('/api/bookings-by-email', async (req, res) => {
   try {
     const email = String(req.query.email || '').trim().toLowerCase();
-    if (!email) return res.status(400).json({ ok: false, message: 'email required' });
+    if (!email)
+      return res.status(400).json({ ok: false, message: 'email required' });
+
     const user = await User.findOne({ email }).lean();
-    if (!user) return res.status(404).json({ ok: false, message: 'User not found' });
+    if (!user)
+      return res.status(404).json({ ok: false, message: 'User not found' });
 
     const bookings = await Booking.find({ userId: user._id }).lean();
     for (const b of bookings) {
       if (b.slotId && b.qty) {
-        await Slot.updateOne({ _id: b.slotId }, { $inc: { available: b.qty } });
+        await Slot.updateOne(
+          { _id: b.slotId },
+          { $inc: { available: b.qty } }
+        );
       }
     }
+
     const result = await Booking.deleteMany({ userId: user._id });
     res.json({ ok: true, deletedCount: result.deletedCount });
   } catch (err) {
@@ -216,13 +195,13 @@ app.get('/api/users/profile', async (req, res) => {
 
   const user = await User.findOne({ email }).lean();
   if (!user) {
-    // Return empty profile (200) so frontend shows "No bookings yet" instead of 404
     return res.json({ user: { id: null, name: '', email }, bookings: [] });
   }
 
   const bookings = await Booking.find({ userId: user._id }).lean();
   const expIds = [...new Set(bookings.map((b) => String(b.experienceId)))];
   const slotIds = [...new Set(bookings.map((b) => String(b.slotId)))];
+
   const exps = await Experience.find({ _id: { $in: expIds } }).lean();
   const slots = await Slot.find({ _id: { $in: slotIds } }).lean();
 
@@ -233,29 +212,37 @@ app.get('/api/users/profile', async (req, res) => {
     id: String(b._id),
     date: b.date,
     qty: b.qty,
-    experience: expById[String(b.experienceId)] ? {
-      id: String(b.experienceId),
-      title: expById[String(b.experienceId)].title,
-      price: expById[String(b.experienceId)].price,
-      imageUrl: expById[String(b.experienceId)].imageUrl
-    } : null,
-    slot: slotById[String(b.slotId)] ? { id: String(b.slotId), timeLabel: slotById[String(b.slotId)].timeLabel } : null
+    experience: expById[String(b.experienceId)]
+      ? {
+          id: String(b.experienceId),
+          title: expById[String(b.experienceId)].title,
+          price: expById[String(b.experienceId)].price,
+          imageUrl: expById[String(b.experienceId)].imageUrl,
+        }
+      : null,
+    slot: slotById[String(b.slotId)]
+      ? { id: String(b.slotId), timeLabel: slotById[String(b.slotId)].timeLabel }
+      : null,
   }));
 
-  res.json({ user: { id: String(user._id), name: user.name, email: user.email }, bookings: enriched });
+  res.json({
+    user: { id: String(user._id), name: user.name, email: user.email },
+    bookings: enriched,
+  });
 });
 
-// Signup: create user with name and email
+// Signup
 app.post('/api/auth/signup', async (req, res) => {
   try {
     const { name, email } = req.body || {};
-    if (!name || !email) return res.status(400).json({ ok: false, message: 'name and email required' });
+    if (!name || !email)
+      return res.status(400).json({ ok: false, message: 'name and email required' });
+
     const emailNormalized = String(email).trim().toLowerCase();
-    // If user already exists, instruct them to login instead of creating a duplicate
     const existing = await User.findOne({ email: emailNormalized }).lean();
-    if (existing) {
+    if (existing)
       return res.status(409).json({ ok: false, message: 'User already exists. Please login.' });
-    }
+
     const user = await User.create({ name, email: emailNormalized });
     res.json({ ok: true, user: { id: String(user._id), name: user.name, email: user.email } });
   } catch (err) {
@@ -264,26 +251,28 @@ app.post('/api/auth/signup', async (req, res) => {
   }
 });
 
-// Login: lookup by email
+// Login
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email } = req.body || {};
     if (!email) return res.status(400).json({ ok: false, message: 'email required' });
+
     const emailNormalized = String(email).trim().toLowerCase();
     const user = await User.findOne({ email: emailNormalized }).lean();
     if (!user) return res.status(404).json({ ok: false, message: 'User not found' });
+
     res.json({ ok: true, user: { id: String(user._id), name: user.name, email: user.email } });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ ok: false, message: 'Server error' });
   }
 });
-//SERVER
-const PORT = process.env.PORT || 4000;
+
+// ✅ For local dev only
 if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`🚀 API running at http://localhost:${PORT}`);
-  });
+  const PORT = process.env.PORT || 4000;
+  app.listen(PORT, () => console.log(`API running at http://localhost:${PORT}`));
 }
 
+// ✅ Export app for Vercel
 export default app;
