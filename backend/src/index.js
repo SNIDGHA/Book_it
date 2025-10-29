@@ -51,13 +51,38 @@ app.use(async (req, res, next) => {
 app.get('/api/experiences', async (req, res) => {
   const search = req.query.search?.trim().toLowerCase();
   const filter = search
-    ? { $or: [{ title: { $regex: search, $options: 'i' } }, { city: { $regex: search, $options: 'i' } }, { shortDescription: { $regex: search, $options: 'i' } }, { longDescription: { $regex: search, $options: 'i' } }] }
-    : {};
-  const exps = await Experience.find(filter).lean();
-  res.json(
-    exps.map((e) => ({
+  // Error handling middleware
+  const errorHandler = (err, req, res, next) => {
+    console.error('Error:', err);
+    res.status(500).json({ 
+      ok: false, 
+      message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message 
+    });
+  };
+
+  // Configure CORS for all environments
+  app.use(cors({
+    origin: [
+      'http://localhost:5173',
+      'https://book-it-frontend.vercel.app',
+      'https://book-it-site.vercel.app',
+      'https://book-it-ten.vercel.app',
+      'https://book-it-snidghas-projects.vercel.app'
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  }));
       id: String(e._id),
       title: e.title,
+
+  // Request logging in development
+  if (process.env.NODE_ENV !== 'production') {
+    app.use((req, res, next) => {
+      console.log(`${req.method} ${req.url}`);
+      next();
+    });
+  }
       city: e.city,
       price: e.price,
       imageUrl: e.imageUrl,

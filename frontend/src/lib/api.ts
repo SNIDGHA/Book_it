@@ -10,10 +10,17 @@ import type {
 
 const client = axios.create({ baseURL: import.meta.env.VITE_API_URL || 'http://localhost:4000/api' });
 
+// Add response interceptor for error handling
+client.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('API Error:', error.response?.data || error.message);
+    throw error;
+  }
+);
+
 export async function getExperiences(search?: string): Promise<Experience[]> {
   // Only include the search query if it contains at least one alphanumeric character.
-  // This prevents requests like `?search=:` or other punctuation-only queries that
-  // may be accidental and can lead to unexpected responses.
   const includeSearch = typeof search === 'string' && /[a-z0-9\p{L}]/iu.test(search);
   const params = includeSearch ? { search } : undefined;
   try {
@@ -27,10 +34,9 @@ export async function getExperiences(search?: string): Promise<Experience[]> {
   }
 }
 
-export async function getExperienceDetails(id: string) {
-  const res = await fetch(`http://localhost:4000/api/experiences/${id}`);
-  if (!res.ok) throw new Error('Failed to load');
-  return res.json();
+export async function getExperienceDetails(id: string): Promise<ExperienceDetailsResponse> {
+  const { data } = await client.get(`/experiences/${id}`);
+  return data;
 }
 
 export async function validatePromo(code: string): Promise<PromoValidationResponse> {
