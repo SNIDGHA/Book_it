@@ -99,14 +99,55 @@ Open the local Vite URL printed in the terminal (usually `http://localhost:5173`
 - frontend/
   - src/ (React + TSX pages and components)
 
+## Deployment
+
+### Backend (Render.com)
+1. Create an account on [Render](https://render.com)
+2. Connect your GitHub repository
+3. Click "New +" and select "Web Service"
+4. Choose this repo and use these settings:
+   - Name: book-it-api
+   - Region: Frankfurt (or your preferred region)
+   - Branch: main
+   - Root Directory: ./
+   - Environment: Node
+   - Build Command: cd backend && npm install
+   - Start Command: cd backend && npm start
+5. Add environment variables:
+   - NODE_ENV: production
+   - MONGODB_URI: (your MongoDB Atlas URI)
+
+### Frontend (Vercel)
+1. Create an account on [Vercel](https://vercel.com)
+2. Install Vercel CLI: `npm i -g vercel`
+3. From the frontend directory:
+   ```powershell
+   cd frontend
+   vercel login
+   vercel
+   ```
+4. For subsequent deploys:
+   ```powershell
+   vercel --prod
+   ```
+
+### MongoDB Atlas (Database)
+1. Create a [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) account
+2. Create a new cluster (free tier is fine)
+3. Add your IP to the allowlist
+4. Create a database user
+5. Get your connection string and add it to Render.com environment variables
+
+### Environment Variables
+- Backend (add in Render.com dashboard):
+  - NODE_ENV: production
+  - MONGODB_URI: mongodb+srv://...
+- Frontend (already configured in .env.production):
+  - VITE_API_URL: https://book-it-api.onrender.com/api
+
+Live URLs:
+- Frontend: https://book-it-site.vercel.app
+- API: https://book-it-api.onrender.com
+
 ## About
 This repo was pushed to GitHub at: https://github.com/SNIDGHA/Book_it.git
-
-If you want me to:
-- convert `backend`/`frontend` back to submodules,
-- add a GitHub Actions workflow for CI,
-- add a small README in each subfolder,
-let me know and I can add those.
-
----
-Created automatically by the project maintainer tooling.

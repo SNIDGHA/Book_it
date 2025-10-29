@@ -6,20 +6,22 @@ import { nanoid } from 'nanoid';
 import { Booking, Experience, Promo, Slot, User } from './models.js';
 
 const app = express();
-app.use(cors());
+// Configure CORS for production and development
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production'
+    ? ['https://book-it-frontend.vercel.app', 'https://book-it-site.vercel.app']
+    : 'http://localhost:5173',
+  credentials: true
+}));
 app.use(express.json());
+
+// Health check endpoint for Render
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
 // MongoDB connection
 const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/book_it';
 await mongoose.connect(mongoUri);
 console.log('✅ MongoDB connected');
-
-// Seeding moved to `backend/src/seed.js`.
-// To populate the DB with sample experiences and slots run:
-//   node src/seed.js
-// The runtime server will only read from the DB and will not auto-seed.
-
-
-// Note: data seeding is handled by backend/src/seed.js. There is no runtime reset endpoint.
 
 // Get all experiences
 app.get('/api/experiences', async (req, res) => {

@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: book-it-api
+    env: node
+    region: frankfurt  # Choose your preferred region
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false  # Means you'll set this manually in Render dashboard
+    autoDeploy: true
