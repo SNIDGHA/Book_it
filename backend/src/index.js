@@ -230,5 +230,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 //SERVER
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(` API running at http://localhost:${PORT}`));
+// const PORT = process.env.PORT || 4000;
+// app.listen(PORT, () => console.log(` API running at http://localhost:${PORT}`));
+
+export default app;
