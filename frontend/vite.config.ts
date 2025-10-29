@@ -11,7 +11,8 @@ export default defineConfig({
         changeOrigin: true
       }
     }
-  }
+  },
+  base: '/', // ensure this
 });
 
 
