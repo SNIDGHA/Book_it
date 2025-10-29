@@ -8,9 +8,7 @@ import { Booking, Experience, Promo, Slot, User } from './models.js';
 const app = express();
 // Configure CORS for production and development
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? ['https://book-it-ten-ecru.vercel.app', 'https://book-it-frontend.vercel.app']
-    : 'http://localhost:5173',
+  origin: ['http://localhost:5173', 'https://book-it-frontend.vercel.app'],
   credentials: true
 }));
 app.use(express.json());
@@ -19,7 +17,9 @@ app.use(express.json());
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 // Root endpoint for Vercel
-app.get('/', (req, res) => res.json({ message: 'Book-it API is running' }));
+app.get('/', (req, res) => {
+  res.json({ message: 'Backend is running!' });
+});
 
 // MongoDB connection
 let isConnected = false;
@@ -254,7 +254,11 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 //SERVER
-// const PORT = process.env.PORT || 4000;
-// app.listen(PORT, () => console.log(` API running at http://localhost:${PORT}`));
+const PORT = process.env.PORT || 4000;
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`🚀 API running at http://localhost:${PORT}`);
+  });
+}
 
 export default app;
