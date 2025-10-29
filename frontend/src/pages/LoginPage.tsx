@@ -10,18 +10,40 @@ export function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim()) {
+      setError('Email is required');
+      return;
+    }
+    
     setError(null);
     setLoading(true);
+    
     try {
+      console.log('Attempting login with:', email);
       const res = await login(email);
+      
       if (res?.ok && res.user) {
+        // Success: store user and redirect
+        console.log('Login successful:', res.user);
         localStorage.setItem('bookit:lastUser', JSON.stringify(res.user));
         navigate('/home');
       } else {
-        setError(res?.message || 'Login failed');
+        // API returned ok: false or no user
+        console.warn('Login response invalid:', res);
+        setError('Invalid login response from server');
       }
     } catch (err: any) {
-      setError(err?.response?.data?.message || err.message || 'Login failed');
+      // Handle specific error cases
+      if (err.response?.status === 404) {
+        setError('User not found. Please check your email or sign up.');
+      } else if (err.response?.status === 400) {
+        setError(err.response.data.message || 'Invalid email format');
+      } else if (err.code === 'ECONNABORTED') {
+        setError('Login timed out. Please try again.');
+      } else {
+        console.error('Login error:', err);
+        setError(err.response?.data?.message || err.message || 'Login failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -46,3 +68,13 @@ export function LoginPage() {
     </div>
   );
 }
+
+// Example of using fetch directly
+// fetch('https://book-it-ten-ecru.vercel.app/api/auth/login', {
+//   method: 'POST',
+//   headers: {'Content-Type': 'application/json'},
+//   body: JSON.stringify({email: 'test@example.com'})
+// })
+// .then(r => r.text())
+// .then(console.log)
+// .catch(console.error)
