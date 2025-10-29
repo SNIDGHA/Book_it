@@ -9,19 +9,43 @@ const app = express();
 // Configure CORS for production and development
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
-    ? ['https://book-it-frontend.vercel.app', 'https://book-it-site.vercel.app']
+    ? ['https://book-it-ten-ecru.vercel.app', 'https://book-it-frontend.vercel.app']
     : 'http://localhost:5173',
   credentials: true
 }));
 app.use(express.json());
 
-// Health check endpoint for Render
+// Health check endpoint
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
+// Root endpoint for Vercel
+app.get('/', (req, res) => res.json({ message: 'Book-it API is running' }));
+
 // MongoDB connection
-const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/book_it';
-await mongoose.connect(mongoUri);
-console.log('✅ MongoDB connected');
+let isConnected = false;
+const connectDB = async () => {
+  if (isConnected) return;
+  try {
+    const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/book_it';
+    await mongoose.connect(mongoUri);
+    isConnected = true;
+    console.log('✅ MongoDB connected');
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    throw error;
+  }
+};
+
+// Connect to MongoDB before handling routes
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error('DB connection failed:', error);
+    res.status(500).json({ error: 'Database connection failed' });
+  }
+});
 
 // Get all experiences
 app.get('/api/experiences', async (req, res) => {
