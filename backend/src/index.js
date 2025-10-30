@@ -260,42 +260,6 @@ app.get('/api/users/profile', async (req, res) => {
   });
 });
 
-// Signup
-app.post('/api/auth/signup', async (req, res) => {
-  try {
-    const { name, email } = req.body || {};
-    if (!name || !email)
-      return res.status(400).json({ ok: false, message: 'name and email required' });
-
-    const emailNormalized = String(email).trim().toLowerCase();
-    const existing = await User.findOne({ email: emailNormalized }).lean();
-    if (existing)
-      return res.status(409).json({ ok: false, message: 'User already exists. Please login.' });
-
-    const user = await User.create({ name, email: emailNormalized });
-    res.json({ ok: true, user: { id: String(user._id), name: user.name, email: user.email } });
-  } catch (err) {
-    console.error('Signup error:', err);
-    res.status(500).json({ ok: false, message: 'Server error' });
-  }
-});
-
-// Login
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { email } = req.body || {};
-    if (!email) return res.status(400).json({ ok: false, message: 'email required' });
-
-    const emailNormalized = String(email).trim().toLowerCase();
-    const user = await User.findOne({ email: emailNormalized }).lean();
-    if (!user) return res.status(404).json({ ok: false, message: 'User not found' });
-
-    res.json({ ok: true, user: { id: String(user._id), name: user.name, email: user.email } });
-  } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ ok: false, message: 'Server error' });
-  }
-});
 
 // ✅ For local dev only
 if (process.env.NODE_ENV !== 'production') {
