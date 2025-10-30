@@ -16,28 +16,29 @@ const app = express();
 app.use(express.json());
 
 // ================== CORS CONFIG (FIXED) ==================
-const allowedOrigins = [
-  "https://frontend-9uefyhhqr-snidghas-projects.vercel.app", // latest deployed frontend
-  "https://frontend-5rac535u8-snidghas-projects.vercel.app", // your current live frontend
-  "https://frontend-4utkmaqku-snidghas-projects.vercel.app",
-  "https://frontend-1ngi7e8no-snidghas-projects.vercel.app",
-  "https://frontend-in40qky2o-snidghas-projects.vercel.app",
-  "http://localhost:5173", // local dev
-  "http://localhost:5174", // local dev fallback
-];
+// const allowedOrigins = [
+//   "https://frontend-9uefyhhqr-snidghas-projects.vercel.app", // latest deployed frontend
+//   "https://frontend-5rac535u8-snidghas-projects.vercel.app", // your current live frontend
+//   "https://frontend-4utkmaqku-snidghas-projects.vercel.app",
+//   "https://frontend-1ngi7e8no-snidghas-projects.vercel.app",
+//   "https://frontend-in40qky2o-snidghas-projects.vercel.app",
+//   "http://localhost:5173", // local dev
+//   "http://localhost:5174", // local dev fallback
+// ];
 
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // allow requests with no origin (like mobile apps or curl)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      console.warn("❌ Blocked by CORS:", origin);
-      return callback(new Error("Not allowed by CORS"));
-    },
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    credentials: true,
+    // origin: (origin, callback) => {
+    //   // allow requests with no origin (like mobile apps or curl)
+    //   if (!origin) return callback(null, true);
+    //   if (allowedOrigins.includes(origin)) return callback(null, true);
+    //   console.warn("❌ Blocked by CORS:", origin);
+    //   return callback(new Error("Not allowed by CORS"));
+    // },
+    // methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    // credentials: true,
+    origin: ["https://book-it-snigma.netlify.app/", "http://localhost:5174"]
   })
 );
 
