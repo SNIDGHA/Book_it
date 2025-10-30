@@ -1,151 +1,116 @@
-import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
-import mongoose from 'mongoose';
-import { nanoid } from 'nanoid';
-import { Booking, Experience, Promo, Slot, User } from './models.js';
+import path from "path";
+import { fileURLToPath } from "url";
+import dotenv from "dotenv";
+import express from "express";
+import mongoose from "mongoose";
+import cors from "cors";
+import { nanoid } from "nanoid";
+import { Booking, Experience, Promo, Slot, User } from "./models.js";
+
+// Resolve .env path manually to avoid relative path issues
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, "../.env") }); // 👈 critical fix
 
 const app = express();
 
-// ✅ Configure CORS for both frontend + local dev
+
+// ======================== MIDDLEWARE ========================
 app.use(
   cors({
     origin: [
-      'https://frontend-in40qky2o-snidghas-projects.vercel.app', // your deployed frontend
-      'http://localhost:5173', // for local testing
+      "https://frontend-in40qky2o-snidghas-projects.vercel.app", // deployed frontend
+      "http://localhost:5173", // local testing
     ],
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
-
 app.use(express.json());
 
-// ✅ Health check routes
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
-app.get('/', (req, res) => {
-  res.json({ status: 'ok', message: 'Book_it API is running' });
-});
+// ======================== DB CONNECTION ========================
+const mongoUri = process.env.MONGODB_URI;
 
-// ✅ MongoDB connection
-const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/book_it';
-let isConnected = false;
+if (!mongoUri) {
+  console.error("❌ MONGODB_URI missing in environment variables!");
+  process.exit(1);
+}
 
-const connectDB = async () => {
-  if (isConnected) return;
-  try {
-    if (mongoose.connection && mongoose.connection.readyState === 1) {
-      isConnected = true;
-      return;
-    }
-    await mongoose.connect(mongoUri);
-    isConnected = true;
-    console.log('✅ MongoDB connected');
-  } catch (err) {
-    console.error('MongoDB connection error:', err?.message || err);
-    throw err;
-  }
-};
+mongoose
+  .connect(mongoUri)
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((err) => console.error("❌ MongoDB connection error:", err.message));
 
+// ======================== ROUTES ========================
 
-// ✅ Connect once globally
-connectDB().then(() => {
-  console.log('MongoDB connection ready');
-}).catch(err => {
-  console.error('Initial MongoDB connection failed:', err);
-});
+// Health check
+app.get("/", (_, res) => res.json({ status: "ok", message: "Book_it API running" }));
 
-// -------------------- ROUTES --------------------
-
-// 🔹 Get all experiences
-app.get('/api/experiences', async (req, res) => {
-  const search = req.query.search?.trim().toLowerCase();
+// Get all experiences (with optional search)
+app.get("/api/experiences", async (req, res) => {
+  const search = req.query.search?.trim();
   const filter = search
     ? {
         $or: [
-          { title: { $regex: search, $options: 'i' } },
-          { city: { $regex: search, $options: 'i' } },
-          { shortDescription: { $regex: search, $options: 'i' } },
-          { longDescription: { $regex: search, $options: 'i' } },
+          { title: { $regex: search, $options: "i" } },
+          { city: { $regex: search, $options: "i" } },
+          { shortDescription: { $regex: search, $options: "i" } },
+          { longDescription: { $regex: search, $options: "i" } },
         ],
       }
     : {};
+
   const exps = await Experience.find(filter).lean();
-  res.json(
-    exps.map((e) => ({
-      id: String(e._id),
-      title: e.title,
-      city: e.city,
-      price: e.price,
-      imageUrl: e.imageUrl,
-      shortDescription: e.shortDescription,
-      longDescription: e.longDescription,
-      dates: e.dates,
-    }))
-  );
+  res.json(exps);
 });
 
-// 🔹 Get single experience
-app.get('/api/experiences/:id', async (req, res) => {
+// Get single experience with slots
+app.get("/api/experiences/:id", async (req, res) => {
   const { id } = req.params;
-  if (!id || !mongoose.Types.ObjectId.isValid(id))
-    return res.status(400).json({ message: 'Invalid id' });
+  if (!mongoose.Types.ObjectId.isValid(id))
+    return res.status(400).json({ message: "Invalid id" });
 
   const exp = await Experience.findById(id).lean();
-  if (!exp) return res.status(404).json({ message: 'Not found' });
+  if (!exp) return res.status(404).json({ message: "Not found" });
 
-  const slots = await Slot.find({ experienceId: exp._id }).lean();
-  const slotsByDate = {};
-
-  for (const date of exp.dates) {
-    slotsByDate[date] = slots
+  const slots = await Slot.find({ experienceId: id }).lean();
+  const slotsByDate = exp.dates.reduce((acc, date) => {
+    acc[date] = slots
       .filter((s) => s.date === date)
-      .map((s) => ({
-        id: String(s._id),
-        timeLabel: s.timeLabel,
-        capacity: s.capacity,
-        available: s.available,
+      .map(({ _id, timeLabel, capacity, available }) => ({
+        id: _id,
+        timeLabel,
+        capacity,
+        available,
       }));
-  }
+    return acc;
+  }, {});
 
-  res.json({
-    experience: {
-      id: String(exp._id),
-      title: exp.title,
-      city: exp.city,
-      price: exp.price,
-      imageUrl: exp.imageUrl,
-      shortDescription: exp.shortDescription,
-      longDescription: exp.longDescription,
-      dates: exp.dates,
-    },
-    slotsByDate,
-  });
+  res.json({ experience: exp, slotsByDate });
 });
 
-// 🔹 Validate promo
-app.post('/api/promo/validate', async (req, res) => {
-  const code = (req.body.code || '').toUpperCase();
+// Validate promo code
+app.post("/api/promo/validate", async (req, res) => {
+  const code = (req.body.code || "").toUpperCase();
   const promo = await Promo.findOne({ code }).lean();
-  if (!promo) return res.json({ valid: false });
-  res.json({ valid: true, type: promo.type, value: promo.value });
+  res.json(promo ? { valid: true, type: promo.type, value: promo.value } : { valid: false });
 });
 
-// 🔹 Create booking
-app.post('/api/bookings', async (req, res) => {
+// Create booking
+app.post("/api/bookings", async (req, res) => {
   const { experienceId, date, slotId, qty, name, email } = req.body;
-  const emailNormalized = String(email || '').trim().toLowerCase();
+  const emailNorm = (email || "").trim().toLowerCase();
 
-  if (!experienceId || !date || !slotId || !qty || !name || !emailNormalized)
-    return res.status(400).json({ ok: false, message: 'Missing fields' });
+  if (!experienceId || !date || !slotId || !qty || !name || !emailNorm)
+    return res.status(400).json({ ok: false, message: "Missing fields" });
 
-  const slot = await Slot.findOne({ _id: slotId, date });
+  const slot = await Slot.findById(slotId);
   if (!slot || slot.available < qty)
-    return res.status(409).json({ ok: false, message: 'Not enough slots' });
+    return res.status(409).json({ ok: false, message: "Not enough slots" });
 
   const user = await User.findOneAndUpdate(
-    { email: emailNormalized },
-    { $set: { name, email: emailNormalized } },
+    { email: emailNorm },
+    { name, email: emailNorm },
     { upsert: true, new: true }
   );
 
@@ -159,112 +124,12 @@ app.post('/api/bookings', async (req, res) => {
     refId: nanoid(10),
   });
 
-  res.json({ ok: true, message: 'Booking confirmed' });
+  res.json({ ok: true, message: "Booking confirmed" });
 });
 
-// 🔹 Delete booking by ID
-app.delete('/api/bookings/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    if (!id || !mongoose.Types.ObjectId.isValid(id))
-      return res.status(400).json({ ok: false, message: 'Invalid id' });
+// ======================== SERVER ========================
+const PORT = process.env.PORT || 4000;
 
-    const booking = await Booking.findById(id);
-    if (!booking)
-      return res.status(404).json({ ok: false, message: 'Booking not found' });
+app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
 
-    if (booking.slotId && booking.qty) {
-      await Slot.updateOne(
-        { _id: booking.slotId },
-        { $inc: { available: booking.qty } }
-      );
-    }
-
-    await Booking.deleteOne({ _id: booking._id });
-    res.json({ ok: true, message: 'Booking deleted' });
-  } catch (err) {
-    console.error('Delete booking error:', err);
-    res.status(500).json({ ok: false, message: 'Server error' });
-  }
-});
-
-// 🔹 Delete bookings by email
-app.delete('/api/bookings-by-email', async (req, res) => {
-  try {
-    const email = String(req.query.email || '').trim().toLowerCase();
-    if (!email)
-      return res.status(400).json({ ok: false, message: 'email required' });
-
-    const user = await User.findOne({ email }).lean();
-    if (!user)
-      return res.status(404).json({ ok: false, message: 'User not found' });
-
-    const bookings = await Booking.find({ userId: user._id }).lean();
-    for (const b of bookings) {
-      if (b.slotId && b.qty) {
-        await Slot.updateOne(
-          { _id: b.slotId },
-          { $inc: { available: b.qty } }
-        );
-      }
-    }
-
-    const result = await Booking.deleteMany({ userId: user._id });
-    res.json({ ok: true, deletedCount: result.deletedCount });
-  } catch (err) {
-    console.error('Delete bookings by email error:', err);
-    res.status(500).json({ ok: false, message: 'Server error' });
-  }
-});
-
-// 🔹 Get user profile
-app.get('/api/users/profile', async (req, res) => {
-  const email = String(req.query.email || '').trim().toLowerCase();
-  if (!email) return res.status(400).json({ message: 'Email required' });
-
-  const user = await User.findOne({ email }).lean();
-  if (!user) {
-    return res.json({ user: { id: null, name: '', email }, bookings: [] });
-  }
-
-  const bookings = await Booking.find({ userId: user._id }).lean();
-  const expIds = [...new Set(bookings.map((b) => String(b.experienceId)))];
-  const slotIds = [...new Set(bookings.map((b) => String(b.slotId)))];
-
-  const exps = await Experience.find({ _id: { $in: expIds } }).lean();
-  const slots = await Slot.find({ _id: { $in: slotIds } }).lean();
-
-  const expById = Object.fromEntries(exps.map((e) => [String(e._id), e]));
-  const slotById = Object.fromEntries(slots.map((s) => [String(s._id), s]));
-
-  const enriched = bookings.map((b) => ({
-    id: String(b._id),
-    date: b.date,
-    qty: b.qty,
-    experience: expById[String(b.experienceId)]
-      ? {
-          id: String(b.experienceId),
-          title: expById[String(b.experienceId)].title,
-          price: expById[String(b.experienceId)].price,
-          imageUrl: expById[String(b.experienceId)].imageUrl,
-        }
-      : null,
-    slot: slotById[String(b.slotId)]
-      ? { id: String(b.slotId), timeLabel: slotById[String(b.slotId)].timeLabel }
-      : null,
-  }));
-
-  res.json({
-    user: { id: String(user._id), name: user.name, email: user.email },
-    bookings: enriched,
-  });
-});
-
-// ✅ Local dev only
-if (process.env.NODE_ENV !== 'production') {
-  const PORT = process.env.PORT || 4000;
-  app.listen(PORT, () => console.log(`API running at http://localhost:${PORT}`));
-}
-
-// ✅ Export for Vercel
 export default app;
