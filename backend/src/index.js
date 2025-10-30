@@ -18,7 +18,7 @@ app.use(express.json());
 const allowedOrigins = [
   'http://localhost:5173', // local Vite dev
   'http://localhost:3000', // fallback
-  'https://book-it-snigma.netlify.app/', // ✅ your deployed frontend
+  'https://book-it-snigma.netlify.app', // ✅ your deployed frontend
 ];
 
 // ================== CORS CONFIG (FIXED) ==================
@@ -31,22 +31,40 @@ const allowedOrigins = [
 //   "http://localhost:5173", // local dev
 //   "http://localhost:5174", // local dev fallback
 // ];
-
-
 app.use(
   cors({
-    // origin: (origin, callback) => {
-    //   // allow requests with no origin (like mobile apps or curl)
-    //   if (!origin) return callback(null, true);
-    //   if (allowedOrigins.includes(origin)) return callback(null, true);
-    //   console.warn("❌ Blocked by CORS:", origin);
-    //   return callback(new Error("Not allowed by CORS"));
-    // },
-    // methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    // credentials: true,
-    origin: ["https://book-it-snigma.netlify.app/","http://localhost:5174"]
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, Postman, or curl)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.includes(origin)) {
+        console.log("✅ CORS allowed for:", origin);
+        return callback(null, true);
+      }
+      
+      console.warn("❌ Blocked by CORS:", origin);
+      return callback(new Error("Not allowed by CORS"));
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization']
   })
 );
+
+// app.use(
+//   cors({
+//     // origin: (origin, callback) => {
+//     //   // allow requests with no origin (like mobile apps or curl)
+//     //   if (!origin) return callback(null, true);
+//     //   if (allowedOrigins.includes(origin)) return callback(null, true);
+//     //   console.warn("❌ Blocked by CORS:", origin);
+//     //   return callback(new Error("Not allowed by CORS"));
+//     // },
+//     // methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+//     // credentials: true,
+//     origin: ["https://book-it-snigma.netlify.app/","http://localhost:5174"]
+//   })
+// );
 
 // Pre-flight fix for all routes
 app.options("*", cors());
