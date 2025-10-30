@@ -15,6 +15,12 @@ dotenv.config({ path: path.join(__dirname, "../.env") });
 const app = express();
 app.use(express.json());
 
+const allowedOrigins = [
+  'http://localhost:5173', // local Vite dev
+  'http://localhost:3000', // fallback
+  'https://book-it-snigma.netlify.app/', // ✅ your deployed frontend
+];
+
 // ================== CORS CONFIG (FIXED) ==================
 // const allowedOrigins = [
 //   "https://frontend-9uefyhhqr-snidghas-projects.vercel.app", // latest deployed frontend
@@ -38,7 +44,7 @@ app.use(
     // },
     // methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     // credentials: true,
-    origin: ["https://book-it-snigma.netlify.app/", "http://localhost:5174"]
+    origin: ["https://book-it-snigma.netlify.app/","http://localhost:5174"]
   })
 );
 
