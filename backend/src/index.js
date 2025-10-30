@@ -7,30 +7,40 @@ import cors from "cors";
 import { nanoid } from "nanoid";
 import { Booking, Experience, Promo, Slot, User } from "./models.js";
 
-// Resolve .env path manually to avoid relative path issues
+// ================== ENV SETUP ==================
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.join(__dirname, "../.env") }); // 👈 critical fix
+dotenv.config({ path: path.join(__dirname, "../.env") });
 
 const app = express();
+app.use(express.json());
 
+// ================== CORS CONFIG (✅ FIXED) ==================
+const allowedOrigins = [
+  "https://frontend-1ngi7e8no-snidghas-projects.vercel.app", // ✅ your deployed frontend
+  "https://frontend-in40qky2o-snidghas-projects.vercel.app", // ✅ backup Vercel deploy URL
+  "http://localhost:5173", // local dev
+];
 
-// ======================== MIDDLEWARE ========================
 app.use(
   cors({
-    origin: [
-      "https://frontend-in40qky2o-snidghas-projects.vercel.app", // deployed frontend
-      "http://localhost:5173", // local testing
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: (origin, callback) => {
+      // allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      console.warn("❌ Blocked by CORS:", origin);
+      return callback(new Error("Not allowed by CORS"));
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
   })
 );
-app.use(express.json());
 
-// ======================== DB CONNECTION ========================
+// Pre-flight fix for all routes
+app.options("*", cors());
+
+// ================== DB CONNECTION ==================
 const mongoUri = process.env.MONGODB_URI;
-
 if (!mongoUri) {
   console.error("❌ MONGODB_URI missing in environment variables!");
   process.exit(1);
@@ -41,50 +51,55 @@ mongoose
   .then(() => console.log("✅ MongoDB connected"))
   .catch((err) => console.error("❌ MongoDB connection error:", err.message));
 
-// ======================== ROUTES ========================
+// ================== HEALTH CHECK ==================
+app.get("/api/health", (_, res) =>
+  res.status(200).send("✅ Backend is live and CORS works!")
+);
 
-// Health check
-app.get("/", (_, res) => res.json({ status: "ok", message: "Book_it API running" }));
+// ================== ROUTES ==================
 
 // Get all experiences (with optional search)
 app.get("/api/experiences", async (req, res) => {
-  const search = req.query.search?.trim();
-  const filter = search
-    ? {
-        $or: [
-          { title: { $regex: search, $options: "i" } },
-          { city: { $regex: search, $options: "i" } },
-          { shortDescription: { $regex: search, $options: "i" } },
-          { longDescription: { $regex: search, $options: "i" } },
-        ],
-      }
-    : {};
+  try {
+    const search = req.query.search?.trim();
+    const filter = search
+      ? {
+          $or: [
+            { title: { $regex: search, $options: "i" } },
+            { location: { $regex: search, $options: "i" } },
+          ],
+        }
+      : {};
 
-  const exps = await Experience.find(filter).lean();
-  res.json(exps);
+    const exps = await Experience.find(filter).lean();
+    res.json(exps);
+  } catch (err) {
+    console.error("❌ Error fetching experiences:", err);
+    res.status(500).json({ error: "Failed to fetch experiences" });
+  }
 });
 
 // Get single experience with slots
 app.get("/api/experiences/:id", async (req, res) => {
   const { id } = req.params;
   if (!mongoose.Types.ObjectId.isValid(id))
-    return res.status(400).json({ message: "Invalid id" });
+    return res.status(400).json({ message: "Invalid ID" });
 
   const exp = await Experience.findById(id).lean();
-  if (!exp) return res.status(404).json({ message: "Not found" });
+  if (!exp) return res.status(404).json({ message: "Experience not found" });
 
   const slots = await Slot.find({ experienceId: id }).lean();
-  const slotsByDate = exp.dates.reduce((acc, date) => {
-    acc[date] = slots
-      .filter((s) => s.date === date)
-      .map(({ _id, timeLabel, capacity, available }) => ({
-        id: _id,
-        timeLabel,
-        capacity,
-        available,
-      }));
-    return acc;
-  }, {});
+
+  const slotsByDate = {};
+  for (const s of slots) {
+    if (!slotsByDate[s.date]) slotsByDate[s.date] = [];
+    slotsByDate[s.date].push({
+      id: s._id,
+      timeLabel: s.timeLabel,
+      capacity: s.capacity,
+      available: s.available,
+    });
+  }
 
   res.json({ experience: exp, slotsByDate });
 });
@@ -93,7 +108,9 @@ app.get("/api/experiences/:id", async (req, res) => {
 app.post("/api/promo/validate", async (req, res) => {
   const code = (req.body.code || "").toUpperCase();
   const promo = await Promo.findOne({ code }).lean();
-  res.json(promo ? { valid: true, type: promo.type, value: promo.value } : { valid: false });
+  res.json(
+    promo ? { valid: true, type: promo.type, value: promo.value } : { valid: false }
+  );
 });
 
 // Create booking
@@ -102,7 +119,7 @@ app.post("/api/bookings", async (req, res) => {
   const emailNorm = (email || "").trim().toLowerCase();
 
   if (!experienceId || !date || !slotId || !qty || !name || !emailNorm)
-    return res.status(400).json({ ok: false, message: "Missing fields" });
+    return res.status(400).json({ ok: false, message: "Missing required fields" });
 
   const slot = await Slot.findById(slotId);
   if (!slot || slot.available < qty)
@@ -127,9 +144,10 @@ app.post("/api/bookings", async (req, res) => {
   res.json({ ok: true, message: "Booking confirmed" });
 });
 
-// ======================== SERVER ========================
+// ================== SERVER ==================
 const PORT = process.env.PORT || 4000;
-
-app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
+app.listen(PORT, () =>
+  console.log(`🚀 Server running successfully on port ${PORT}`)
+);
 
 export default app;
