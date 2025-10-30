@@ -11,13 +11,13 @@ import type {
 // Prefer localhost in dev (Vite exposes import.meta.env.DEV).
 const BUILT_API = import.meta.env.VITE_API_URL as string | undefined;
 const IS_DEV = Boolean(import.meta.env.DEV);
-const RUNTIME_FALLBACK = IS_DEV
-  ? 'http://localhost:4000'
-  : (BUILT_API || 'https://backend-dyo8wzcc1-snidghas-projects.vercel.app');
 
-const API_URL = 'http://localhost:4000';
+const API_URL = IS_DEV
+  ? 'http://localhost:4000' // local dev
+  : (BUILT_API || 'https://book-it-8f2e.vercel.app'); // fallback for production
 
-console.log('API URL:', API_URL); // Debug log
+console.log('🌐 Using API URL:', API_URL);
+
 
 const client = axios.create({ 
   baseURL: `${API_URL}/api`,
