@@ -183,12 +183,6 @@ app.get('/api/users/profile', async (req, res) => {
   res.json({ user, bookings: enriched });
 });
 
-app.get('/cors-test', (req, res) => {
-  res.json({
-    message: 'CORS test',
-    origin: req.headers.origin,
-  });
-});
 
 // ================== SERVER ==================
 const PORT = process.env.PORT || 4000;
