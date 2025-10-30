@@ -15,12 +15,17 @@ dotenv.config({ path: path.join(__dirname, "../.env") });
 const app = express();
 app.use(express.json());
 
-// ================== CORS CONFIG (✅ FIXED) ==================
+// ================== CORS CONFIG (FIXED) ==================
 const allowedOrigins = [
-  "https://frontend-1ngi7e8no-snidghas-projects.vercel.app", // ✅ your deployed frontend
-  "https://frontend-in40qky2o-snidghas-projects.vercel.app", // ✅ backup Vercel deploy URL
+  "https://frontend-9uefyhhqr-snidghas-projects.vercel.app", // latest deployed frontend
+  "https://frontend-5rac535u8-snidghas-projects.vercel.app", // your current live frontend
+  "https://frontend-4utkmaqku-snidghas-projects.vercel.app",
+  "https://frontend-1ngi7e8no-snidghas-projects.vercel.app",
+  "https://frontend-in40qky2o-snidghas-projects.vercel.app",
   "http://localhost:5173", // local dev
+  "http://localhost:5174", // local dev fallback
 ];
+
 
 app.use(
   cors({
@@ -66,7 +71,7 @@ app.get("/api/experiences", async (req, res) => {
       ? {
           $or: [
             { title: { $regex: search, $options: "i" } },
-            { location: { $regex: search, $options: "i" } },
+            { city: { $regex: search, $options: "i" } },
           ],
         }
       : {};
@@ -132,22 +137,50 @@ app.post("/api/bookings", async (req, res) => {
   );
 
   await Slot.updateOne({ _id: slot._id }, { $inc: { available: -qty } });
+  const refId = nanoid(10);
   await Booking.create({
     experienceId,
     date,
     slotId,
     qty,
     userId: user._id,
-    refId: nanoid(10),
+    refId,
   });
 
-  res.json({ ok: true, message: "Booking confirmed" });
+  res.json({ ok: true, message: "Booking confirmed", refId });
+});
+
+// Get user profile with bookings
+app.get('/api/users/profile', async (req, res) => {
+  const email = (req.query.email || '').trim().toLowerCase();
+  if (!email) return res.status(400).json({ message: 'Email required' });
+
+  const user = await User.findOne({ email }).lean();
+  if (!user) return res.json({ user: { id: null, name: '', email }, bookings: [] });
+
+  const bookings = await Booking.find({ userId: user._id }).lean();
+  const exps = await Experience.find({ _id: { $in: bookings.map((b) => b.experienceId) } }).lean();
+  const slots = await Slot.find({ _id: { $in: bookings.map((b) => b.slotId) } }).lean();
+
+  const expMap = Object.fromEntries(exps.map((e) => [String(e._id), e]));
+  const slotMap = Object.fromEntries(slots.map((s) => [String(s._id), s]));
+
+  const enriched = bookings.map((b) => ({
+    id: b._id,
+    date: b.date,
+    qty: b.qty,
+    experience: expMap[b.experienceId],
+    slot: slotMap[b.slotId],
+  }));
+
+  res.json({ user, bookings: enriched });
 });
 
 // ================== SERVER ==================
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () =>
-  console.log(`🚀 Server running successfully on port ${PORT}`)
-);
-
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () =>
+    console.log(`🚀 Server running successfully on port ${PORT}`)
+  );
+}
 export default app;
