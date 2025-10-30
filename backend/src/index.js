@@ -15,56 +15,40 @@ dotenv.config({ path: path.join(__dirname, "../.env") });
 const app = express();
 app.use(express.json());
 
+
+// ================== CORS CONFIG (FINAL FIX) ==================
 const allowedOrigins = [
-  'http://localhost:5173', // local Vite dev
-  'http://localhost:3000', // fallback
-  'https://book-it-snigma.netlify.app', // ✅ your deployed frontend
+  'https://book-it-snigma.netlify.app', // ✅ NO TRAILING SLASH!
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000'
 ];
 
-// ================== CORS CONFIG (FIXED) ==================
-// const allowedOrigins = [
-//   "https://frontend-9uefyhhqr-snidghas-projects.vercel.app", // latest deployed frontend
-//   "https://frontend-5rac535u8-snidghas-projects.vercel.app", // your current live frontend
-//   "https://frontend-4utkmaqku-snidghas-projects.vercel.app",
-//   "https://frontend-1ngi7e8no-snidghas-projects.vercel.app",
-//   "https://frontend-in40qky2o-snidghas-projects.vercel.app",
-//   "http://localhost:5173", // local dev
-//   "http://localhost:5174", // local dev fallback
-// ];
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, Postman, or curl)
-      if (!origin) return callback(null, true);
-      
-      if (allowedOrigins.includes(origin)) {
-        console.log("✅ CORS allowed for:", origin);
+    origin: function (origin, callback) {
+      // Allow requests with no origin (mobile apps, Postman, curl)
+      if (!origin) {
+        console.log('✅ No origin - allowing');
         return callback(null, true);
       }
       
-      console.warn("❌ Blocked by CORS:", origin);
-      return callback(new Error("Not allowed by CORS"));
+      if (allowedOrigins.includes(origin)) {
+        console.log('✅ CORS allowed for:', origin);
+        return callback(null, true);
+      }
+      
+      console.error('❌ CORS blocked for:', origin);
+      console.error('   Allowed origins:', allowedOrigins);
+      return callback(new Error('Not allowed by CORS'));
     },
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization']
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 600 // Cache preflight requests for 10 minutes
   })
 );
-
-// app.use(
-//   cors({
-//     // origin: (origin, callback) => {
-//     //   // allow requests with no origin (like mobile apps or curl)
-//     //   if (!origin) return callback(null, true);
-//     //   if (allowedOrigins.includes(origin)) return callback(null, true);
-//     //   console.warn("❌ Blocked by CORS:", origin);
-//     //   return callback(new Error("Not allowed by CORS"));
-//     // },
-//     // methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-//     // credentials: true,
-//     origin: ["https://book-it-snigma.netlify.app/","http://localhost:5174"]
-//   })
-// );
 
 // Pre-flight fix for all routes
 app.options("*", cors());
@@ -85,6 +69,22 @@ mongoose
 app.get("/api/health", (_, res) =>
   res.status(200).send("✅ Backend is live and CORS works!")
 );
+
+// Add connection check middleware
+app.use(async (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    try {
+      await mongoose.connect(process.env.MONGODB_URI, {
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+      });
+    } catch (err) {
+      console.error("MongoDB connection failed:", err);
+      return res.status(503).json({ error: "Database unavailable" });
+    }
+  }
+  next();
+});
 
 // ================== ROUTES ==================
 
