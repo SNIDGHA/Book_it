@@ -40,7 +40,7 @@ export function HomePage() {
         <div className="grid gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {experiences?.map((exp) => (
             <div
-              key={exp.id}
+              key={exp._id}
               className="group rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200"
             >
               <div className="relative">
@@ -67,7 +67,7 @@ export function HomePage() {
                     From <span className="font-semibold text-gray-900">₹{exp.price}</span>
                   </div>
                   <Link
-                    to={`/experience/${exp.id}`}
+                    to={`/experience/${exp._id}`}
                     className="text-sm bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium px-4 py-2 rounded-md transition"
                   >
                     View Details →

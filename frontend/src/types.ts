@@ -1,5 +1,6 @@
 export type Experience = {
-  id: string;
+  _id: string;
+  id?: string;
   title: string;
   city: string;
   price: number; // base price per ticket

@@ -47,7 +47,7 @@ export function CheckoutPage() {
     setSubmitting(true);
     setError(null);
     const payload: BookingPayload = {
-      experienceId: state.experience.id,
+      experienceId: state.experience._id,
       date: state.date,
       slotId: state.slot.id,
       qty: state.qty,

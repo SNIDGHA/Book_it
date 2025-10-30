@@ -15,7 +15,7 @@ const RUNTIME_FALLBACK = IS_DEV
   ? 'http://localhost:4000'
   : (BUILT_API || 'https://backend-dyo8wzcc1-snidghas-projects.vercel.app');
 
-const API_URL = RUNTIME_FALLBACK;
+const API_URL = 'http://localhost:4000';
 
 console.log('API URL:', API_URL); // Debug log
 
