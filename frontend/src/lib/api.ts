@@ -74,11 +74,6 @@ export async function validatePromo(code: string): Promise<PromoValidationRespon
   return data;
 }
 
-export async function signup(name: string, email: string) {
-  const { data } = await client.post('/auth/signup', { name, email });
-  return data;
-}
-
 // Test function to check API connectivity
 async function testApiConnection() {
   try {
@@ -89,29 +84,6 @@ async function testApiConnection() {
   } catch (error) {
     console.error('API connection test failed:', error);
     return false;
-  }
-}
-
-export async function login(email: string) {
-  try {
-    // Test API connection first
-    await testApiConnection();
-    
-    console.log('Sending login request to:', API_URL + '/api/auth/login');
-    const { data } = await client.post('/auth/login', { email });
-    console.log('Login success:', data);
-    return data;
-  } catch (error: any) {
-    if (error.code === 'ECONNABORTED') {
-      console.error('Login request timed out. API might be down or slow.');
-    } else {
-      console.error('Login failed:', {
-        error: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
-    }
-    throw error;
   }
 }
 

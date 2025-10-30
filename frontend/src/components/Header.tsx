@@ -37,13 +37,6 @@ export function Header() {
       setUser(null);
     }
   }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('bookit:lastUser');
-    setUser(null);
-    navigate('/');
-  };
-
   return (
     <header className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b">
       <div className="mx-auto max-w-6xl px-4 py-3 flex items-center gap-2 md:gap-4">
@@ -71,14 +64,8 @@ export function Header() {
                 <div className="h-7 w-7 rounded-full bg-yellow-400 grid place-content-center text-xs font-semibold">{(user.name || 'U').slice(0,1)}</div>
                 <span className="hidden lg:block text-sm font-medium">{user.name || 'My Profile'}</span>
               </Link>
-              <button onClick={handleLogout} className="text-sm px-3 py-1 rounded border bg-white hover:bg-gray-50">Logout</button>
             </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Link to="/login" className="text-sm px-3 py-1 rounded border bg-white hover:bg-gray-50">Login</Link>
-              <Link to="/signup" className="text-sm px-3 py-1 rounded bg-yellow-400">Sign up</Link>
-            </div>
-          )}
+          ) : null}
         </div>
       </div>
     </header>
