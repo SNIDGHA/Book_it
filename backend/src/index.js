@@ -183,9 +183,17 @@ app.get('/api/users/profile', async (req, res) => {
   res.json({ user, bookings: enriched });
 });
 
+app.get('/cors-test', (req, res) => {
+  res.json({
+    message: 'CORS test',
+    origin: req.headers.origin,
+  });
+});
+
 // ================== SERVER ==================
 const PORT = process.env.PORT || 4000;
 if (process.env.NODE_ENV !== 'production') {
+
   app.listen(PORT, () =>
     console.log(`🚀 Server running successfully on port ${PORT}`)
   );
