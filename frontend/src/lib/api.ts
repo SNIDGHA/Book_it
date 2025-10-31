@@ -8,23 +8,21 @@ import type {
   UserProfile
 } from '../types';
 
-// Prefer localhost in dev (Vite exposes import.meta.env.DEV).
 const BUILT_API = import.meta.env.VITE_API_URL as string | undefined;
 const IS_DEV = Boolean(import.meta.env.DEV);
 
 const API_URL = IS_DEV
-  ? 'http://localhost:4000' // local dev
-  : (BUILT_API || 'https://book-it-8f2e.vercel.app'); // fallback for production
+  ? 'http://localhost:4000/api' // Local backend
+  : (BUILT_API || 'https://book-it-8f2e.vercel.app/api'); // Deployed backend
 
 console.log('🌐 Using API URL:', API_URL);
 
-
-const client = axios.create({ 
-  baseURL: `${API_URL}/api`,
+const client = axios.create({
+  baseURL: API_URL, // ✅ already includes /api
   headers: {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
   },
-  timeout: 15000, // 15s timeout to avoid long hangs in dev
+  timeout: 15000,
 });
 
 // Add request/response logging
