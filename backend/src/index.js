@@ -230,35 +230,35 @@ const app = express();
 // ================== CORS CONFIG (MUST BE FIRST!) ==================
 // This MUST come before express.json() and any routes!
 const allowedOrigins = [
-  'https://book-it-snigma.netlify.app',
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://localhost:3000'
+  "https://book-it-snigma.netlify.app",
+  "https://book-it-8f2e.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:5174"
 ];
 
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  
-  // Check if origin is allowed
-  if (!origin || allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Max-Age', '600');
-    
-    console.log('✅ CORS headers set for:', origin);
-  } else {
-    console.log('❌ CORS blocked for:', origin);
-  }
-  
-  // Handle preflight
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  
-  next();
-});
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like Postman, curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      console.log("✅ CORS allowed for:", origin);
+      return callback(null, true);
+    } else {
+      console.log("❌ CORS blocked for:", origin);
+      return callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+};
+
+// ✅ Apply globally (MUST be before routes)
+app.use(cors(corsOptions));
+
+// ✅ Handle preflight requests
+app.options("*", cors(corsOptions));
 
 // ================== BODY PARSER ==================
 app.use(express.json());
